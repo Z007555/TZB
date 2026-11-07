@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>夺机追梦者｜睡前守护</title>
+<link rel="stylesheet" href="style.css">
+<main>
+<header><small>睡前守护系统 · V0.1</small><span>软件仿真模式</span></header>
+<h1>夺机追梦者</h1>
+<p>用一次自愿交存，为睡前留出一段离屏时间。</p>
+<section class="grid">
+<article>
+<h2>床头托盘</h2>
+<div class="tray" id="tray" aria-hidden="true"><div class="phone"></div></div>
+<p id="device">托盘为空</p>
+<div class="buttons"><button id="put">模拟放入</button><button id="take">立即取回</button></div>
+</article>
+<article>
+<h2>离屏流程</h2>
+<div id="clock">00:00</div><p id="state" role="status"></p>
+<form id="start"><label>演示目标（秒） <input id="target" type="number" min="5" max="3600" value="15" required></label><button>开始自愿交存</button></form>
+<div class="buttons"><button id="fault">模拟传感器故障</button><button id="reset">重置本轮</button></div>
+</article>
+</section>
+<section class="log"><h2>本轮事件 <button id="export">导出 CSV</button></h2><ol id="events"></ol></section>
+<footer>全部事件仅在本页内存中。托盘、故障和环境联动均为仿真，刷新后清空。</footer>
+</main>
+<script src="controller.js"></script>
+<script src="app.js"></script>
+</html>

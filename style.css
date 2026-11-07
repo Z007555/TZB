@@ -1,0 +1,24 @@
+* { box-sizing: border-box }
+body { margin: 0; background: #101b29; color: #e9eff7; font: 16px/1.55 system-ui, sans-serif }
+main { width: min(940px, 94vw); margin: 3rem auto }
+header { display: flex; justify-content: space-between; align-items: center; gap: .5rem }
+header span { background: #26394b; color: #ffe2a8; padding: .3rem .8rem; border-radius: 2rem }
+h1 { font-size: clamp(2rem, 8vw, 4rem); margin: .8rem 0 0 }
+h2 { margin: 0 0 .8rem }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 1rem; margin: 1.5rem 0 1rem }
+article, .log { background: #1c2b3a; border: 1px solid #425363; padding: 1.2rem; border-radius: 1.2rem }
+.tray { display: grid; place-items: center; min-height: 122px; background: #121c26; border: 2px dashed #627387; border-radius: 1rem }
+.phone { width: 50px; height: 90px; border-radius: .75rem; border: 3px solid #bad5e2; background: linear-gradient(160deg,#badfd5,#3c666c); visibility: hidden }
+.tray[data-present="true"] .phone { visibility: visible }
+.tray[data-routine="true"] { background: #283733; border-color: #9fd0ad }
+#clock { font-size: 3.2rem; font-variant-numeric: tabular-nums; color: #a9e4cd }
+.buttons, form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center }
+form { margin-bottom: .6rem }
+button, input { font: inherit; border-radius: .5rem; border: 1px solid #65778a; padding: .45rem .65rem }
+button { color: #102228; background: #a9e4cd; cursor: pointer; font-weight: 650 }
+button:disabled { opacity: .48; cursor: default }
+button:focus-visible, input:focus-visible { outline: 3px solid #ffd88b; outline-offset: 3px }
+input { width: 6em; color: inherit; background: #14202d }
+.log h2 { display: flex; align-items: center; justify-content: space-between; gap: .6rem }
+.log button { font-size: .85rem }
+footer { margin-top: 1rem; color: #b3c2d1; font-size: .88rem }
