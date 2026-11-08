@@ -2,9 +2,16 @@
 
 V0.1 软件仿真原型，面向挑战杯科技发明制作 B 类申报准备。用户自主开始并放置手机，系统在托盘确认后开始计时，显示模拟环境反馈。手机可随时取回，传感器异常时停止计时，事件可导出为 CSV。
 
-## 快速体验
+## 下载运行
 
-下载仓库或源码 ZIP 后解压，用 Edge、Chrome 或 Firefox 打开 `index.html`。页面无需安装依赖，也无需联网。
+[GitHub 发布页](https://github.com/Z007555/TZB/releases)提供 Windows 可执行程序、离线网页和完整源码 ZIP。
+
+- Windows 10/11 64 位：下载后双击 `SleepGuardian-Windows-x64.exe`，程序使用系统自带的 .NET Framework 4.x，在默认浏览器打开本机演示。无需联网、无需安装 Python 或 Node.js。
+- 网页备用版：下载 `SleepGuardian.html` 后直接用现代浏览器打开。
+- 源码版：下载 `SleepGuardian-v0.1.1-source.zip` 后解压，打开 `index.html`。在 Windows 上可用 `packaging/build.ps1` 重新打包。
+
+## 演示操作
+
 
 1. 保留默认的 15 秒，点击「开始自愿交存」，再点击「模拟放入」。
 2. 等待目标达成，或点「立即取回」查看提前结束的记录。
