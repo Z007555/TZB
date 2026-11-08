@@ -7,11 +7,23 @@ h1 { font-size: clamp(2rem, 8vw, 4rem); margin: .8rem 0 0 }
 h2 { margin: 0 0 .8rem }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 1rem; margin: 1.5rem 0 1rem }
 article, .log { background: #1c2b3a; border: 1px solid #425363; padding: 1.2rem; border-radius: 1.2rem }
-.tray { display: grid; place-items: center; min-height: 122px; background: #121c26; border: 2px dashed #627387; border-radius: 1rem }
-.phone { width: 50px; height: 90px; border-radius: .75rem; border: 3px solid #bad5e2; background: linear-gradient(160deg,#badfd5,#3c666c); visibility: hidden }
-.tray[data-present="true"] .phone { visibility: visible }
-.tray[data-routine="true"] { background: #283733; border-color: #9fd0ad }
+.scene { width: 100%; display: block; border-radius: .85rem; background: #14202e }
+.phone { visibility: hidden }
+.scene[data-present="true"] .phone { visibility: visible }
+.scene .glow { opacity: 0; transition: opacity .45s }
+.scene[data-routine="true"] .glow { opacity: .18 }
+.scene[data-routine="true"] .lamp { fill: #f3c481 }
+.scene .curtain { transition: transform .45s }
+.scene .left { transform-origin: 49px 0 }
+.scene .right { transform-origin: 206px 0 }
+.scene[data-routine="true"] .curtain { transform: scaleX(2.31) }
+@media (prefers-reduced-motion: reduce) { .scene * { transition: none !important } }
 #clock { font-size: 3.2rem; font-variant-numeric: tabular-nums; color: #a9e4cd }
+progress { width: 100%; accent-color: #a9e4cd; height: .7rem }
+.intro, .hint, #summary { color: #b3c2d1 }
+.hint { font-size: .9rem }
+.secondary button { background: #cbd8e9 }
+#events:empty { display: none }
 .buttons, form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center }
 form { margin-bottom: .6rem }
 button, input { font: inherit; border-radius: .5rem; border: 1px solid #65778a; padding: .45rem .65rem }

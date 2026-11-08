@@ -1,30 +1,59 @@
 <!doctype html>
 <html lang="zh-CN">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>夺机追梦者｜睡前守护</title>
-<link rel="stylesheet" href="style.css">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="夺机追梦者交互仿真：自愿交存、离屏计时、故障停止与事件复盘。">
+  <title>夺机追梦者｜睡前守护系统</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 <main>
-<header><small>睡前守护系统 · V0.1</small><span>软件仿真模式</span></header>
-<h1>夺机追梦者</h1>
-<p>用一次自愿交存，为睡前留出一段离屏时间。</p>
-<section class="grid">
-<article>
-<h2>床头托盘</h2>
-<div class="tray" id="tray" aria-hidden="true"><div class="phone"></div></div>
-<p id="device">托盘为空</p>
-<div class="buttons"><button id="put">模拟放入</button><button id="take">立即取回</button></div>
-</article>
-<article>
-<h2>离屏流程</h2>
-<div id="clock">00:00</div><p id="state" role="status"></p>
-<form id="start"><label>演示目标（秒） <input id="target" type="number" min="5" max="3600" value="15" required></label><button>开始自愿交存</button></form>
-<div class="buttons"><button id="fault">模拟传感器故障</button><button id="reset">重置本轮</button></div>
-</article>
-</section>
-<section class="log"><h2>本轮事件 <button id="export">导出 CSV</button></h2><ol id="events"></ol></section>
-<footer>全部事件仅在本页内存中。托盘、故障和环境联动均为仿真，刷新后清空。</footer>
+  <header><small>保山学院 · 挑战杯项目演示</small><span>仿真工作台 · V0.2</span></header>
+  <h1>夺机追梦者</h1>
+  <p class="intro">睡前守护系统 · 自愿交存，随时取回。</p>
+  <section class="grid" aria-label="仿真操作">
+    <article class="scene-card">
+      <h2>床头工作站</h2>
+      <svg id="tray" class="scene" viewBox="0 0 480 245" role="img" aria-label="床头场景，含窗帘、暖光灯和敞口托盘">
+        <rect width="480" height="245" fill="#14202e"/>
+        <path d="M0 197H480V245H0Z" fill="#25374a"/>
+        <circle class="glow" cx="365" cy="112" r="100" fill="#f3c481"/>
+        <rect x="49" y="26" width="157" height="112" rx="8" fill="#31466b"/>
+        <circle cx="160" cy="57" r="15" fill="#d8def6"/>
+        <path class="curtain left" d="M49 26H83V141H49Z" fill="#8d85a7"/>
+        <path class="curtain right" d="M172 26H206V141H172Z" fill="#8d85a7"/>
+        <path d="M35 194V157Q35 147 46 147H183V198M35 193H247V222H35Z" fill="#5a7088"/>
+        <rect x="48" y="159" width="77" height="28" rx="9" fill="#bcc7da"/>
+        <path d="M126 173Q137 165 148 169H224Q247 169 247 194H126Z" fill="#759f9c"/>
+        <path d="M285 178H441V217H285Z" fill="#6e5d64"/>
+        <path d="M370 169V114M349 169H392" stroke="#b59f9a" stroke-width="6"/>
+        <path class="lamp" d="M341 113L350 74H391L401 113Z" fill="#8992a8"/>
+        <rect x="298" y="165" width="52" height="13" rx="6" fill="#a6d5ca"/>
+        <rect class="phone" x="311" y="128" width="25" height="41" rx="5" fill="#20333e" stroke="#d9f8ed" stroke-width="2"/>
+      </svg>
+      <p id="device">托盘为空</p>
+      <div class="buttons"><button id="put" disabled>模拟放入</button><button id="take" disabled>立即取回</button></div>
+    </article>
+    <article class="control-card">
+      <h2>离屏流程</h2>
+      <div id="clock">00:00</div>
+      <progress id="progress" value="0" max="1" aria-label="离屏目标进度"></progress>
+      <p id="state" role="status"></p>
+      <form id="start"><label for="target">目标秒数</label><input id="target" type="number" min="5" max="3600" value="15" required><button>开始自愿交存</button></form>
+      <div class="buttons secondary"><button id="fault" disabled>模拟传感器故障</button><button id="reset" disabled>重置本轮</button></div>
+      <p class="hint">先开始，再放入。测试故障时，观察联动停止后仍可取回手机。</p>
+    </article>
+  </section>
+  <section class="log">
+    <h2>本轮事件 <button id="export" disabled>导出 CSV</button></h2>
+    <p id="summary">尚未开始</p>
+    <ol id="events"></ol>
+  </section>
+  <footer>托盘、灯光、窗帘和故障均为软件仿真。刷新或重置会清空本轮记录。</footer>
+  <noscript>此演示需要启用 JavaScript。</noscript>
 </main>
 <script src="controller.js"></script>
 <script src="app.js"></script>
+</body>
 </html>

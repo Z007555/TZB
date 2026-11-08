@@ -7,6 +7,7 @@ class Guardian {
     this.present = false;
     this.events = [];
     this.origin = now();
+    this.ended = null;
   }
 
   record(event, at = this.now()) {
@@ -17,7 +18,8 @@ class Guardian {
     if (this.phase !== "idle" || !Number.isInteger(seconds) || seconds < 5 || seconds > 3600) return false;
     this.phase = "waiting";
     this.targetMs = seconds * 1000;
-    this.record("session_started");
+    this.origin = this.now();
+    this.record("session_started", this.origin);
     return true;
   }
 
@@ -34,29 +36,35 @@ class Guardian {
   tick(at = this.now()) {
     if (this.phase === "routine" && at >= this.deadline) {
       this.phase = "complete";
+      this.ended = this.deadline;
       this.record("goal_reached", this.deadline);
     }
   }
 
   take() {
-    this.tick();
+    const at = this.now();
+    this.tick(at);
     if (!this.present) return false;
     this.present = false;
-    if (this.phase === "routine") this.phase = "stopped";
-    this.record("phone_removed");
+    if (this.phase === "routine") {
+      this.phase = "stopped";
+      this.ended = at;
+    }
+    this.record("phone_removed", at);
     return true;
   }
 
   fault() {
-    this.tick();
+    const at = this.now();
+    this.tick(at);
     if (this.phase !== "waiting" && this.phase !== "routine") return false;
     this.phase = "fault";
-    this.record("sensor_fault");
+    this.ended = at;
+    this.record("sensor_fault", at);
     return true;
   }
 
-  remaining() {
-    const at = this.now();
+  remaining(at = this.now()) {
     this.tick(at);
     if (this.phase === "waiting") return this.targetMs;
     return this.phase === "routine" ? this.deadline - at : 0;
@@ -65,6 +73,11 @@ class Guardian {
   csv() {
     return "seconds,event,source\r\n" +
       this.events.map(({ seconds, event }) => [seconds, event, "simulation"].join(",")).join("\r\n") + "\r\n";
+  }
+
+  elapsed(at = this.now()) {
+    this.tick(at);
+    return this.started === undefined ? 0 : Math.max(0, (this.ended ?? at) - this.started);
   }
 }
 

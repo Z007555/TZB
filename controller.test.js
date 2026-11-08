@@ -53,3 +53,20 @@ test("rejects invalid goals and overlapping starts", () => {
   assert.equal(guard.start(10), true);
   assert.equal(guard.start(12), false);
 });
+
+test("session origin and elapsed time exclude waiting and freeze on exit", () => {
+  let now = 0;
+  const guard = new Guardian(() => now);
+  now = 20000;
+  guard.start(5);
+  assert.equal(guard.events[0].seconds, "0.000");
+  now = 27000;
+  assert.equal(guard.elapsed(), 0);
+  guard.put();
+  now = 28250;
+  assert.equal(guard.elapsed(), 1250);
+  guard.fault();
+  now = 60000;
+  assert.equal(guard.elapsed(), 1250);
+  assert.equal(guard.remaining(), 0);
+});

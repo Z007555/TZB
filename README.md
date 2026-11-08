@@ -1,6 +1,6 @@
 # 夺机追梦者 · 睡前守护系统
 
-V0.1 软件仿真原型，面向挑战杯科技发明制作 B 类申报准备。用户自主开始并放置手机，系统在托盘确认后开始计时，显示模拟环境反馈。手机可随时取回，传感器异常时停止计时，事件可导出为 CSV。
+V0.2 软件仿真，面向挑战杯科技发明制作 B 类。手机入托后开始计时，床头灯与窗帘同步联动。达标、提前取回或传感器异常都会结束计时和联动，用户可导出本轮事件。
 
 ## 下载运行
 
@@ -8,7 +8,7 @@ V0.1 软件仿真原型，面向挑战杯科技发明制作 B 类申报准备。
 
 - Windows 10/11 64 位：下载后双击 `SleepGuardian-Windows-x64.exe`，程序使用系统自带的 .NET Framework 4.x，在默认浏览器打开本机演示。无需联网、无需安装 Python 或 Node.js。
 - 网页备用版：下载 `SleepGuardian.html` 后直接用现代浏览器打开。
-- 源码版：下载 `SleepGuardian-v0.1.1-source.zip` 后解压，打开 `index.html`。在 Windows 上可用 `packaging/build.ps1` 重新打包。
+- 源码版：下载 `SleepGuardian-v0.2.0-source.zip` 后解压，打开 `index.html`。在 Windows 上可用 `packaging/build.ps1` 重新打包。
 
 ## 演示操作
 
@@ -19,6 +19,17 @@ V0.1 软件仿真原型，面向挑战杯科技发明制作 B 类申报准备。
 4. 点击「导出 CSV」保存本轮记录。刷新或重置会清空本轮数据。
 
 开发验证用 Node.js 20+ 运行 `node --test controller.test.js`。核心计时采用单调时钟，开始计时以手机入托事件为准，达到目标以计算出的截止时刻记账。
+
+## 项目结构
+
+| 文件 | 职责 |
+| --- | --- |
+| `index.html`、`style.css` | 页面、床头场景和移动端布局 |
+| `app.js` | 界面交互、计时进度、事件列表和 CSV 下载 |
+| `controller.js` | 交存状态机、时间计算与事件记录 |
+| `controller.test.js` | 正常达标、提前取回、故障及计时边界测试 |
+| `packaging/` | 单文件 HTML 与 Windows 启动器的构建 |
+| `.github/workflows/` | 在线演示与版本包发布 |
 
 ## 版本范围
 

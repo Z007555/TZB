@@ -1,0 +1,25 @@
+name: Publish Windows demo v0.2.0
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-v0.2.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          node --test controller.test.js
+          $dist = Join-Path $env:RUNNER_TEMP 'sleep-guardian'
+          ./packaging/build.ps1 -Output $dist
+          git archive --format=zip --output="$dist/SleepGuardian-v0.2.0-source.zip" HEAD
+          gh release create v0.2.0 "$dist/SleepGuardian-Windows-x64.exe" "$dist/SleepGuardian.html" "$dist/SleepGuardian-v0.2.0-source.zip" --target $env:GITHUB_SHA --title '夺机追梦者 v0.2.0' --notes '增加床头场景、暖光和窗帘联动、计时进度和事件复盘。Windows 10/11 64 位双击 EXE，或打开单文件 HTML。'
