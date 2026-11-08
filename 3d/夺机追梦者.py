@@ -591,6 +591,7 @@ class Woman:
         hair = (0.18, 0.12, 0.12, 1)
         ink = (0.15, 0.12, 0.15, 1)
         self.torso = scene.add_ellipsoid((0.15, 0.085, 0.21), self.pelvis, rgba=fabric)
+        self.hips = scene.add_ellipsoid((0.149, 0.190, 0.090), self.pelvis, rgba=fabric)
         self.neck = scene.add_capsule(0.027, 0.06, self.pelvis, rgba=self.skin)
         self.head = scene.add_ellipsoid((0.075, 0.07, 0.09), self.pelvis, rgba=self.skin)
         self.hair = scene.add_ellipsoid((0.083, 0.073, 0.083), self.pelvis, rgba=hair)
@@ -627,6 +628,8 @@ class Woman:
         self.head_pos = center + self.up * 0.51
         rotation = quat_from_z(self.up, up_hint=self.forward)
         self.scene.set_pose(self.torso, center + self.up * 0.20, rotation)
+        self.scene.set_pose(self.hips, self.pelvis + v3(0, -0.014, -0.055),
+                            p.getQuaternionFromEuler((0, roll * 0.45, 0)))
         self.scene.set_pose(self.neck, center + self.up * 0.407, rotation)
         self.scene.set_pose(self.head, self.head_pos, rotation)
         self.scene.set_pose(self.hair, self.head_pos - self.forward * 0.035 + self.up * 0.022, rotation)
@@ -699,10 +702,10 @@ class Scene:
     # ==================== 【核心优化：人物主体 30° 俯拍视角配置】 ====================
     # CAM_TARGET 精准锁定在人物主体与床头交互区中心 (0.02, 1.42, 1.18)；
     # CAM_PITCH 设为 -30.0°（标准 30 度向下俯拍视角），摄像机高度约 2.36m，彻底摒弃原先的仰拍/平视视角！
-    CAM_TARGET = (-0.10, 1.16, 1.24)
-    CAM_DIST = 4.10
-    CAM_YAW = -26.0
-    CAM_PITCH = -30.0
+    CAM_TARGET = (-0.04, 1.13, 1.23)
+    CAM_DIST = 4.18
+    CAM_YAW = -29.0
+    CAM_PITCH = -27.0
     CAM_FOV = 43.0
 
     # ==================== 【核心优化：主体部分 1.5 倍等比例缩放参数】 ====================
@@ -1454,7 +1457,12 @@ class Scene:
         self.add_box((0.97, 0.08, 0.67), (0.70, 2.36, 0.97),
                     rgba=(0.33, 0.22, 0.14, 1.0))
 
-        # 奶油色亚麻软包床头板
+        # 布艺软包床头板。竖向分缝使布面与胡桃木边框在侧光下分离。
+        for channel in range(9):
+            self.add_mesh(self.cushion_mesh, (0.100, 0.038, 0.425),
+                          (-0.12 + channel * 0.205, 2.257, 1.045),
+                          rgba=(0.54, 0.49, 0.41, 1), tex=linen,
+                          spec=(0.04, 0.04, 0.04))
 
         # 悬挂于床头板上沿的 15 盏暖黄星光氛围灯串（自然垂链曲线分布）
         nlights = 15
@@ -1473,12 +1481,10 @@ class Scene:
             prev = pos
 
         # 程序化床垫、床单与固定护腿被连接到活动被沿。
-        self.add_box((0.88, 1.02, 0.092), (0.70, 1.27, 0.62),
+        self.add_mesh(self.cushion_mesh, (0.90, 1.04, 0.092), (0.70, 1.27, 0.62),
                      rgba=(0.87, 0.82, 0.76, 1.0), tex=linen)
-        self.add_box((0.89, 1.01, 0.016), (0.70, 1.27, 0.725),
+        self.add_mesh(self.cushion_mesh, (0.89, 1.03, 0.027), (0.70, 1.27, 0.718),
                      rgba=(0.92, 0.89, 0.85, 1.0), tex=sheet)
-        self.add_box((0.91, 0.45, 0.05), (0.70, 0.71, 0.775),
-                     rgba=(0.95, 0.90, 0.83, 1.0), tex=duvet)
 
         # 三只并排斜倚在床头的饱满羽绒枕（左侧枕头承载女主角平躺后的头部）
         for x, y, z, nrm, rz, rr in (
@@ -1494,41 +1500,49 @@ class Scene:
                             spec=(0.04, 0.04, 0.04))
             self.sleep_dimmable_items.append({"body": pillow_body, "base_rgba": [0.98, 0.94, 0.88, 1.0], "target_rgba": [0.56, 0.53, 0.48, 1.0]})
 
-        # ==================== 【核心优化：分段式可拉起盖住上半身的动态羽绒被系统】 ====================
-        # 1. 下段固定护腿羽绒被（保持覆盖床尾与腿部 y ∈ [0.26, 1.30]，被子拉起时床尾不露底）
-        self.pull_duvet_parts = []
-        upper_duvet_body = self.add_mesh(
-            self.cushion_mesh, (0.92, 0.36, 0.061), (0.70, 0.92, 0.806),
-            rgba=(0.95, 0.90, 0.83, 1.0), tex=duvet, spec=(0.04, 0.04, 0.04))
-        turned_body = self.add_box(
-            (0.86, 0.12, 0.015), (0.70, 1.16, 0.895),
-            rgba=(0.985, 0.96, 0.92, 1.0), tex=sheet, spec=(0.04, 0.04, 0.04))
-        self.pull_duvet_parts.append({
-            "body": upper_duvet_body,
-            "pos_open": v3(0.70, 0.92, 0.806),
-            "pos_covered": v3(0.70, 1.43, 0.841),
-            "pitch_open": 0.0,
-            "pitch_covered": math.radians(7.5),
-        })
-        self.pull_duvet_parts.append({
-            "body": turned_body,
-            "pos_open": v3(0.70, 1.16, 0.895),
-            "pos_covered": v3(0.70, 1.69, 0.968),
-            "pitch_open": 0.0,
-            "pitch_covered": math.radians(8.0),
-        })
+        self.quilt_origin = v3(0.70, 0.23, 0.747)
+        self.quilt_frames = []
+        self.quilt_index = None
+        for frame in range(25):
+            mesh = self._quilt_mesh(frame, frame / 24)
+            body = self.add_mesh(mesh, (1, 1, 1), (0, 0, -100),
+                                 rgba=(0.84, 0.88, 0.82, 1), tex=duvet,
+                                 spec=(0.025, 0.025, 0.025), double_sided=True)
+            self.quilt_frames.append(body)
+        self._update_duvet(0)
 
-        # 4. 女主角胸肩专属蓬松拱形被窝包络层（确保被子拉起后立体包裹胸口与双肩，绝不穿模外露）
-        torso_drape_body = self.add_ellipsoid(
-            (0.31, 0.29, 0.045), (0.28, 0.90, 0.830),
-            tex=duvet, rgba=(0.96, 0.92, 0.85, 1.0), spec=(0.04, 0.04, 0.04))
-        self.pull_duvet_parts.append({
-            "body": torso_drape_body,
-            "pos_open": v3(0.28, 0.90, 0.825),
-            "pos_covered": v3(0.28, 1.48, 0.885),
-            "pitch_open": 0.0,
-            "pitch_covered": math.radians(8.5),
-        })
+    def _quilt_mesh(self, index, cover):
+        """一整张被面从床尾延伸到肩部，保留垂边、压线和随人体起伏的褶皱。"""
+        path = os.path.join(ASSETS, "meshes", f"quilt_{index:02d}.obj")
+        columns, rows = 52, 40
+        u, v = np.meshgrid(np.linspace(0, 1, columns + 1), np.linspace(0, 1, rows + 1))
+        x = (u - 0.5) * (1.88 - 0.05 * np.cos(v * 5))
+        y = v * (0.96 + 0.60 * cover) + 0.018 * np.sin(u * 12) * v**6
+        edge = np.maximum(0, (np.abs(u - 0.5) - 0.42) / 0.08) ** 2
+        loft = 0.135 * np.exp(-((x + 0.41) / 0.29) ** 2 - ((v - 0.71) / 0.26) ** 2)
+        folds = 0.014 * np.sin(21 * u + 2.2 * np.sin(5 * v)) * np.sin(math.pi * v)
+        quilting = 0.004 * (np.cos(8 * math.pi * u) + np.cos(10 * math.pi * v))
+        hem = 0.012 * np.exp(-((v - 0.965) / 0.025) ** 2)
+        z = 0.053 + loft + folds + quilting + hem - edge * 0.105
+        vertices = np.stack((x, y, z), axis=-1)
+        dv, du = np.gradient(vertices, axis=(0, 1))
+        normals = np.cross(du, dv)
+        normals /= np.linalg.norm(normals, axis=-1, keepdims=True)
+        with open(path, "w", encoding="ascii") as mesh:
+            for pos, uv, normal in zip(vertices.reshape(-1, 3),
+                                       np.stack((u, v), axis=-1).reshape(-1, 2),
+                                       normals.reshape(-1, 3)):
+                mesh.write("v %.6f %.6f %.6f\n" % tuple(pos))
+                mesh.write("vt %.6f %.6f\n" % tuple(uv))
+                mesh.write("vn %.6f %.6f %.6f\n" % tuple(normal))
+            mesh.write("s 1\n")
+            for row in range(rows):
+                for col in range(columns):
+                    a = row * (columns + 1) + col + 1
+                    b, c, d = a + 1, a + columns + 2, a + columns + 1
+                    refs = [f"{n}/{n}/{n}" for n in (a, b, c, d)]
+                    mesh.write("f %s %s %s\nf %s %s %s\n" % (*refs[:3], refs[0], *refs[2:]))
+        return path
 
     def _update_duvet(self, cover_ratio: float):
         """动态更新被子拉起盖住人物上半身的位姿：
@@ -1540,13 +1554,14 @@ class Scene:
             return
         cover_ratio = float(np.clip(cover_ratio, 0.0, 1.0))
         self.current_duvet_cover = cover_ratio
-        # 在拉被子中途（cover_ratio 约 0.5 时）附加一个微小的向上掀起弧度，模拟双手提拉被头的真实布料动态
-        lift_arc = math.sin(math.pi * cover_ratio) * 0.024
-        for item in getattr(self, "pull_duvet_parts", []):
-            pos = lerp(item["pos_open"], item["pos_covered"], cover_ratio) + v3(0.0, 0.0, lift_arc)
-            pitch = float(lerp(item["pitch_open"], item["pitch_covered"], cover_ratio))
-            quat = p.getQuaternionFromEuler([pitch, 0.0, 0.0])
-            p.resetBasePositionAndOrientation(item["body"], list(pos), list(quat))
+        index = round(cover_ratio * (len(self.quilt_frames) - 1))
+        rotation = (0, 0, 0, 1)
+        if self.quilt_index != index:
+            if self.quilt_index is not None:
+                self.set_pose(self.quilt_frames[self.quilt_index], (0, 0, -100), rotation)
+            self.quilt_index = index
+        lift = 0.023 * math.sin(math.pi * cover_ratio)
+        self.set_pose(self.quilt_frames[index], self.quilt_origin + v3(0, 0, lift), rotation)
 
     def _build_lounge_chair(self):
         """构建房间左后侧的单人休闲扶手椅（浅燕麦色布艺坐垫 + 胡桃木斜腿 + 焦糖披毯与姜黄腰枕）。"""
@@ -1661,10 +1676,10 @@ class Scene:
             self.add_ellipsoid((0.046, 0.065, 0.032), (sx, sy - 0.035, 0.045), quat=q_s, rgba=fleece, spec=(0.08, 0.08, 0.08))
 
     def _build_bed_throw(self):
-        """构建床尾折叠搭放的焦糖暖咖色针织盖毯。"""
-        throw_col = (0.76, 0.58, 0.44, 1.0)
-        self.add_box((0.82, 0.22, 0.028), (0.70, 0.52, 0.840), rgba=throw_col, spec=(0.06, 0.05, 0.04))
-        self.add_box((0.78, 0.18, 0.022), (0.70, 0.52, 0.865), rgba=(0.80, 0.62, 0.48, 1.0), spec=(0.06, 0.05, 0.04))
+        """床尾搭一条薄的灰蓝布毯，圆角叠边贴合被面。"""
+        self.add_mesh(self.cushion_mesh, (0.86, 0.175, 0.019), (0.70, 0.48, 0.827),
+                      rgba=(0.49, 0.60, 0.65, 1), tex=self.load_tex("linen_sheet.png"),
+                      spec=(0.025, 0.025, 0.025))
 
     def _build_nightstand(self):
         """构建床头左侧的胡桃木双抽屉床头柜（含四条柜腿、柜体、顶板及两层黄铜拉手抽屉面）。"""
@@ -1697,8 +1712,19 @@ class Scene:
                         rgba=(0.72, 0.54, 0.28, 1.0), spec=(0.7, 0.55, 0.3))
         self.nightlamp_bulb = self.add_ellipsoid((0.048, 0.048, 0.055), base_pos + v3(0, 0, 0.165),
                         rgba=(1.0, 0.85, 0.50, 1.0), spec=(1.0, 0.9, 0.6))
-        self.nightlamp_shade = self.add_cylinder(0.095, 0.13, base_pos + v3(0, 0, 0.175),
-                        rgba=(0.99, 0.88, 0.65, 0.94), spec=(0.3, 0.25, 0.15))
+        shade_path = os.path.join(ASSETS, "meshes", "linen_shade.obj")
+        sides = 72
+        with open(shade_path, "w", encoding="ascii") as mesh:
+            for radius, z in ((0.119, 0), (0.084, 0.139)):
+                for index in range(sides):
+                    angle = 2 * math.pi * index / sides
+                    r = radius + 0.0025 * math.cos(angle * 18)
+                    mesh.write(f"v {r * math.cos(angle):.6f} {r * math.sin(angle):.6f} {z:.6f}\n")
+            for index in range(sides):
+                a, b = index + 1, (index + 1) % sides + 1
+                mesh.write(f"f {a} {b} {b + sides}\nf {a} {b + sides} {a + sides}\n")
+        self.nightlamp_shade = self.add_mesh(shade_path, (1, 1, 1), base_pos + v3(0, 0, 0.113),
+                        rgba=(0.99, 0.88, 0.65, 0.94), spec=(0.09, 0.08, 0.06), double_sided=True)
 
     # -----------------------------------------------------------------------
     # 睡眠模式全屋动态调光系统
@@ -1737,9 +1763,9 @@ class Scene:
                 continue
             base_rgba = item["base_rgba"]
             cur_rgba = [
-                base_rgba[0] * dark_factor * amber_shift[0],
-                base_rgba[1] * dark_factor * amber_shift[1],
-                base_rgba[2] * dark_factor * amber_shift[2],
+                min(1.0, base_rgba[0] * dark_factor * amber_shift[0]),
+                min(1.0, base_rgba[1] * dark_factor * amber_shift[1]),
+                min(1.0, base_rgba[2] * dark_factor * amber_shift[2]),
                 base_rgba[3]
             ]
             base_spec = item.get("base_spec", [0.2, 0.2, 0.2])

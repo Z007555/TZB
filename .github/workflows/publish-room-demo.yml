@@ -1,0 +1,54 @@
+name: Publish Windows 3D demo v0.5.0
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-room-demo.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: windows-3d-v0.5.0
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: guardian
+          python-version: '3.13'
+          channels: conda-forge
+          channel-priority: strict
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          conda install --yes --name guardian --override-channels -c conda-forge pybullet=3.25 numpy pillow pyinstaller "libblas=*=*openblas"
+      - name: Build and verify the EXE
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          conda run --no-capture-output --name guardian pwsh -NoProfile -File ./3d/build.ps1 -Output "$env:RUNNER_TEMP/guardian-dist"
+      - name: Publish the executable and its source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $dist = Join-Path $env:RUNNER_TEMP 'guardian-dist'
+          $source = Join-Path $dist 'SleepGuardian-3D-v0.5.0-source.zip'
+          git archive --format=zip --output="$source" HEAD 3d .github/workflows/publish-room-demo.yml
+          $notes = Join-Path $dist 'release-notes.md'
+          @'
+          夺机追梦者 · PyBullet 三维卧室演示
+
+          Windows 10/11 64 位。下载 SleepGuardian-3D-Windows-x64.exe 后双击，三维剧情自动播放。程序内含运行依赖，可离线使用。
+
+          1 仰卧，2 侧卧，3 俯卧。按 E 模拟凌晨 02:17 家人来电并归还手机。空格暂停，R 重播，Q 或 Esc 退出。
+          '@ | Set-Content -LiteralPath $notes -Encoding utf8
+          gh release create v0.5.0 "$dist/SleepGuardian-3D-Windows-x64.exe" "$source" --target $env:GITHUB_SHA --title '夺机追梦者 v0.5.0 · PyBullet 三维演示' --notes-file "$notes"
+
+

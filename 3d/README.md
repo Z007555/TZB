@@ -4,7 +4,7 @@
 
 ## Windows 可执行程序
 
-在 [三维版发布页](https://github.com/Z007555/TZB/releases/tag/v0.4.0) 下载 `SleepGuardian-3D-Windows-x64.exe`。Windows 10/11 64 位双击即可启动独立三维窗口，动画自动播放。程序内含运行依赖，可离线使用。语音使用 Windows 本地语音引擎。
+在 [三维版发布页](https://github.com/Z007555/TZB/releases/tag/v0.5.0) 下载 `SleepGuardian-3D-Windows-x64.exe`。Windows 10/11 64 位双击即可启动独立三维窗口，动画自动播放。程序内含运行依赖，可离线使用。语音使用 Windows 本地语音引擎。
 
 | 操作 | 按键 |
 | --- | --- |
@@ -33,4 +33,5 @@ python .\夺机追梦者.py --mute
 用 `--capture --times 0 22.4 25.5 37.8 41 --output renders` 导出关键帧。Windows 构建脚本会用成品 EXE 渲染同一组关键帧，通过后才发布。
 
 离线渲染午夜剧情可加 --pose prone --emergency。三种姿势参数为 supine、side、prone。
+
 
