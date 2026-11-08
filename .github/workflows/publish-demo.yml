@@ -1,0 +1,27 @@
+name: Publish Windows demo v0.1.1
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-demo.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          node --test controller.test.js
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+          $dist = Join-Path $env:RUNNER_TEMP 'sleep-guardian'
+          ./packaging/build.ps1 -Output $dist
+          git archive --format=zip --output="$dist/SleepGuardian-v0.1.1-source.zip" HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Source archiving failed' }
+          gh release create v0.1.1 "$dist/SleepGuardian-Windows-x64.exe" "$dist/SleepGuardian.html" "$dist/SleepGuardian-v0.1.1-source.zip" --target $env:GITHUB_SHA --title '夺机追梦者 v0.1.1 · Windows 离线演示' --notes 'Windows 10/11 64 位：双击 EXE，在默认浏览器打开离线仿真。也可以直接打开单文件 HTML。保留默认 15 秒 → 开始自愿交存 → 模拟放入 → 等待达标或立即取回。可另开一轮模拟传感器故障，并导出 CSV。'
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
