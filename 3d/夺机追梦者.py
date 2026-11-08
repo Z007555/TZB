@@ -94,9 +94,15 @@ VOICE_DIR = os.path.join(ASSETS, "voice")           # 机器人 TTS 合成语音
 SPEECH_LINES = {
     1: "不早了",
     2: "该睡觉了",
-    3: "手机将于次日早上6点整归还",
+    3: "手机已入托，急用可取回",
     4: "将为您播放助眠曲",
+    5: "收到急用请求，正在归还手机",
+    6: "手机已取回，模拟接听来电",
+    7: "凌晨两点十七分，家人来电",
 }
+
+SLEEP_POSES = {"supine": ("仰卧", 0.0), "side": ("侧卧", -76.0), "prone": ("俯卧", -170.0)}
+POSE_KEYS = dict(zip("123", SLEEP_POSES))
 
 # ---------------------------------------------------------------------------
 # 机器人完整语音合成与不打断排队播放引擎
@@ -604,21 +610,24 @@ class Woman:
         self.phone_front = norm(v3(0, 0.88, -0.47))
         self.phone_base_q = frame_quat(self.phone_front, self.phone_up)
         self.phone_body = scene.add_box((0.041, 0.080, 0.006), self.phone_base_pos,
-                                       rgba=(0.09, 0.13, 0.17, 1))
+                                       rgba=(0.12, 0.24, 0.32, 1))
         self.screen = scene.add_card(0.076, 0.149, self.phone_base_pos,
                                      self.phone_front, self.phone_up, tex=scene.load_tex("phone"))
         self.expression = "indifferent"
         self.blinking = False
 
-    def set_recline(self, amount, t, gaze_state):
+    def set_recline(self, amount, t, gaze_state, roll=0.0):
         self.recline = float(np.clip(amount, 0, 1))
         angle = lerp(math.radians(63), math.radians(9), self.recline)
         self.up = v3(0, math.cos(angle), math.sin(angle))
-        self.forward = v3(0, -math.sin(angle), math.cos(angle))
-        self.head_pos = self.pelvis + self.up * 0.51
+        neutral = v3(0, -math.sin(angle), math.cos(angle))
+        self.forward = neutral * math.cos(roll) + v3(1, 0, 0) * math.sin(roll)
+        self.across = norm(np.cross(self.up, self.forward))
+        center = self.pelvis + v3(0, 0, 0.065 * abs(math.sin(roll)))
+        self.head_pos = center + self.up * 0.51
         rotation = quat_from_z(self.up, up_hint=self.forward)
-        self.scene.set_pose(self.torso, self.pelvis + self.up * 0.20, rotation)
-        self.scene.set_pose(self.neck, self.pelvis + self.up * 0.407, rotation)
+        self.scene.set_pose(self.torso, center + self.up * 0.20, rotation)
+        self.scene.set_pose(self.neck, center + self.up * 0.407, rotation)
         self.scene.set_pose(self.head, self.head_pos, rotation)
         self.scene.set_pose(self.hair, self.head_pos - self.forward * 0.035 + self.up * 0.022, rotation)
         self.update_face()
@@ -633,7 +642,7 @@ class Woman:
         rotation = frame_quat(self.up, self.forward)
         closed = self.blinking or self.expression == "sleep"
         for index, eye in enumerate(self.eyes):
-            pos = face + v3((-1 if index == 0 else 1) * 0.030, 0, 0) + self.up * 0.016
+            pos = face + self.across * ((-1 if index == 0 else 1) * 0.030) + self.up * 0.016
             # 闭眼时将眼部图元压入面部，只保留靠外轮廓。
             self.scene.set_pose(eye, pos - self.forward * (0.005 if closed else 0), rotation)
         mouth_height = -0.038 if self.expression == "sad" else -0.027
@@ -659,13 +668,13 @@ class Woman:
     def update_arms(self):
         for side, sign in (("right", 1), ("left", -1)):
             upper, lower, palm, fingers = self.arms[side]
-            shoulder = self.pelvis + self.up * 0.36 + v3(sign * 0.13, 0, 0)
+            shoulder = self.pelvis + self.up * 0.36 + self.across * (sign * 0.13)
             wrist = getattr(self, side + "_wrist")
             forward = norm(getattr(self, side + "_hand_dir"))
             normal = norm(getattr(self, side + "_palm_normal"))
             across = norm(np.cross(normal, forward))
             normal = norm(np.cross(forward, across))
-            elbow = elbow_point(shoulder, wrist, 0.22, 0.20, v3(sign, 0, -0.5))
+            elbow = elbow_point(shoulder, wrist, 0.22, 0.20, self.across * sign + v3(0, 0, -0.5))
             aim_link(self.scene, upper, shoulder, elbow)
             aim_link(self.scene, lower, elbow, wrist)
             self.scene.set_pose(palm, wrist + forward * 0.019, quat_from_z(forward, up_hint=normal))
@@ -934,7 +943,7 @@ class Scene:
 
         # 2. 检查并生成 21 张电子闹钟数字贴图 (11:59:40 ~ 12:00:00)
         clock_times = [(f"clock_11_59_{s:02d}.png", f"11:59:{s:02d}") for s in range(40, 60)]
-        clock_times.append(("clock_12_00_00.png", "12:00:00"))
+        clock_times.extend([("clock_12_00_00.png", "12:00:00"), ("clock_02_17_00.png", "02:17:00")])
         font_clock = _get_font(128, bold=True)
         for fname, t_str in clock_times:
             cpath = os.path.join(CLOCK_DIR, fname)
@@ -962,6 +971,17 @@ class Scene:
             draw.rounded_rectangle([16, 230, 304, 410], radius=18, fill=(68, 56, 98))
             draw.rounded_rectangle([16, 430, 304, 600], radius=18, fill=(42, 88, 96))
             img.save(ppath)
+        call_path = os.path.join(PHONE_DIR, "incoming_call.png")
+        if not os.path.exists(call_path):
+            img = Image.new("RGB", (320, 640), (19, 37, 59))
+            draw = ImageDraw.Draw(img)
+            draw.ellipse((115, 112, 205, 202), fill=(69, 103, 136))
+            draw.text((160, 155), "家", font=_get_font(40), anchor="mm", fill="white")
+            draw.text((160, 263), "家人来电", font=_get_font(39), anchor="mm", fill="white")
+            draw.text((160, 325), "02:17  模拟", font=_get_font(26), anchor="mm", fill=(182, 201, 220))
+            draw.rounded_rectangle((74, 496, 246, 560), 26, fill=(53, 143, 110))
+            draw.text((160, 528), "接听", font=_get_font(28), anchor="mm", fill="white")
+            img.save(call_path)
 
         # 4. 检查并兜底生成 TEX_DIR 下的基础材质与人物表情贴图（防止 textures.py 未打包时缺失）
         base_fallbacks = {
@@ -980,7 +1000,28 @@ class Scene:
         for fname, rgb in base_fallbacks.items():
             fpath = os.path.join(TEX_DIR, fname)
             if not os.path.exists(fpath):
-                Image.new("RGB", (256, 256), rgb).save(fpath)
+                size = 384
+                y, x = np.indices((size, size))
+                rng = np.random.default_rng(sum(fname.encode("ascii")))
+                noise = rng.normal(0, 1.1, (size, size))
+                if fname == "floor_wood.png":
+                    row = y // 32
+                    offset = (row % 3) * 56
+                    joints = ((x + offset) % 128 < 2) | (y % 32 < 2)
+                    plank = rng.uniform(-11, 11, (12, 4))[row, ((x + offset) // 128) % 4]
+                    noise += plank + 3 * np.sin(y * 1.7 + 0.65 * np.sin(x / 19)) - 24 * joints
+                elif fname.startswith(("linen_", "duvet_", "rug_")):
+                    noise += 2.0 * (x % 4 == 0) + 2.0 * (y % 5 == 0) + np.sin((x + y) / 18)
+                elif fname == "night_window.png":
+                    noise += 14 * (1 - y / size)
+                pixels = np.asarray(rgb)[None, None, :] + noise[:, :, None]
+                material = Image.fromarray(np.uint8(np.clip(pixels, 0, 255)))
+                if fname == "night_window.png":
+                    sky = ImageDraw.Draw(material)
+                    for sx, sy in rng.integers(12, size - 12, (38, 2)):
+                        sky.ellipse((int(sx), int(sy), int(sx) + 1, int(sy) + 1), fill=(147, 169, 205))
+                    sky.ellipse((265, 58, 306, 99), fill=(206, 215, 232))
+                material.save(fpath)
 
         # 5. 检查并兜底生成 5 张女主角面部表情贴图
         for face_name in ("face_indifferent.png", "face_indifferent_blink.png",
@@ -1026,7 +1067,7 @@ class Scene:
         ]
         # 若基础贴图、气泡字幕贴图或电子钟贴图有任何一项缺失，均触发生成逻辑！
         missing_tex = [n for n in need if not os.path.exists(os.path.join(TEX_DIR, n))]
-        missing_speech = [i for i in range(1, 5) if not os.path.exists(os.path.join(SPEECH_DIR, f"speech_plate_{i}.png"))]
+        missing_speech = [i for i in SPEECH_LINES if not os.path.exists(os.path.join(SPEECH_DIR, f"speech_plate_{i}.png"))]
         missing_clock = [s for s in range(40, 60) if not os.path.exists(os.path.join(CLOCK_DIR, f"clock_11_59_{s:02d}.png"))]
         if not os.path.exists(os.path.join(CLOCK_DIR, "clock_12_00_00.png")):
             missing_clock.append(60)
@@ -1054,7 +1095,8 @@ class Scene:
         # 加载手机屏幕贴图与机器人 1~4 号气泡字幕贴图
         phone_path = os.path.join(PHONE_DIR, "phone_screen.png")
         loaded["phone"] = _safe_load_tex(phone_path)
-        for i in range(1, 5):
+        loaded["incoming_call"] = _safe_load_tex(os.path.join(PHONE_DIR, "incoming_call.png"))
+        for i in SPEECH_LINES:
             spath = os.path.join(SPEECH_DIR, f"speech_plate_{i}.png")
             loaded[f"speech{i}"] = _safe_load_tex(spath)
 
@@ -1065,6 +1107,7 @@ class Scene:
             loaded[key] = _safe_load_tex(path)
         c12 = os.path.join(CLOCK_DIR, "clock_12_00_00.png")
         loaded["clock_12_00_00"] = _safe_load_tex(c12)
+        loaded["clock_02_17_00"] = _safe_load_tex(os.path.join(CLOCK_DIR, "clock_02_17_00.png"))
         return loaded
 
     def _ensure_meshes(self):
@@ -1076,6 +1119,14 @@ class Scene:
         sphere = os.path.join(pybullet_data.getDataPath(), "sphere_smooth.obj")
         with open(sphere, encoding="utf-8") as src, open(self.unit_sphere, "w", encoding="utf-8") as dst:
             dst.writelines(line for line in src if not line.startswith(("mtllib ", "usemtl ")))
+        self.cushion_mesh = os.path.join(mesh_dir, "rounded_cushion.obj")
+        with open(self.unit_sphere, encoding="utf-8") as src, open(self.cushion_mesh, "w", encoding="utf-8") as dst:
+            for line in src:
+                if line.startswith("v "):
+                    coordinates = (float(value) for value in line.split()[1:4])
+                    rounded = (math.copysign(abs(value) ** 0.42, value) for value in coordinates)
+                    line = "v " + " ".join(f"{value:.7f}" for value in rounded) + "\n"
+                dst.write(line)
         self.unit_quad = ""
         self.meshes["speech_panel"] = ""
         self.meshes["clock_panel"] = ""
@@ -1431,14 +1482,14 @@ class Scene:
 
         # 三只并排斜倚在床头的饱满羽绒枕（左侧枕头承载女主角平躺后的头部）
         for x, y, z, nrm, rz, rr in (
-            (0.14, 2.01, 0.835, (-0.10, -0.93, 0.34), 0.10, (0.285, 0.170, 0.108)),
-            (0.68, 2.03, 0.830, (0.04, -0.94, 0.32), -0.05, (0.305, 0.175, 0.110)),
-            (1.25, 2.01, 0.820, (0.14, -0.93, 0.34), -0.12, (0.270, 0.155, 0.100)),
+            (0.29, 1.96, 0.788, (0, 0.18, 0.98), 0.10, (0.259, 0.174, 0.062)),
+            (0.82, 2.01, 0.797, (0, 0.22, 0.98), -0.05, (0.244, 0.165, 0.065)),
+            (1.26, 2.04, 0.803, (0, 0.25, 0.97), -0.12, (0.200, 0.146, 0.064)),
         ):
             q = frame_quat(nrm, (0, 0, 1))
             q = p.multiplyTransforms([0, 0, 0], q, [0, 0, 0],
                                     p.getQuaternionFromEuler([0, 0, rz]))[1]
-            pillow_body = self.add_ellipsoid(rr, (x, y, z), q,
+            pillow_body = self.add_mesh(self.cushion_mesh, rr, (x, y, z), q,
                             tex=linen, rgba=(0.98, 0.94, 0.88, 1.0),
                             spec=(0.04, 0.04, 0.04))
             self.sleep_dimmable_items.append({"body": pillow_body, "base_rgba": [0.98, 0.94, 0.88, 1.0], "target_rgba": [0.56, 0.53, 0.48, 1.0]})
@@ -1446,16 +1497,16 @@ class Scene:
         # ==================== 【核心优化：分段式可拉起盖住上半身的动态羽绒被系统】 ====================
         # 1. 下段固定护腿羽绒被（保持覆盖床尾与腿部 y ∈ [0.26, 1.30]，被子拉起时床尾不露底）
         self.pull_duvet_parts = []
-        upper_duvet_body = self.add_box(
-            (0.92, 0.34, 0.082), (0.70, 0.92, 0.785),
+        upper_duvet_body = self.add_mesh(
+            self.cushion_mesh, (0.92, 0.36, 0.061), (0.70, 0.92, 0.806),
             rgba=(0.95, 0.90, 0.83, 1.0), tex=duvet, spec=(0.04, 0.04, 0.04))
         turned_body = self.add_box(
             (0.86, 0.12, 0.015), (0.70, 1.16, 0.895),
             rgba=(0.985, 0.96, 0.92, 1.0), tex=sheet, spec=(0.04, 0.04, 0.04))
         self.pull_duvet_parts.append({
             "body": upper_duvet_body,
-            "pos_open": v3(0.70, 0.92, 0.785),
-            "pos_covered": v3(0.70, 1.45, 0.855),
+            "pos_open": v3(0.70, 0.92, 0.806),
+            "pos_covered": v3(0.70, 1.43, 0.841),
             "pitch_open": 0.0,
             "pitch_covered": math.radians(7.5),
         })
@@ -1469,12 +1520,12 @@ class Scene:
 
         # 4. 女主角胸肩专属蓬松拱形被窝包络层（确保被子拉起后立体包裹胸口与双肩，绝不穿模外露）
         torso_drape_body = self.add_ellipsoid(
-            (0.38, 0.33, 0.078), (0.28, 0.90, 0.825),
+            (0.31, 0.29, 0.045), (0.28, 0.90, 0.830),
             tex=duvet, rgba=(0.96, 0.92, 0.85, 1.0), spec=(0.04, 0.04, 0.04))
         self.pull_duvet_parts.append({
             "body": torso_drape_body,
             "pos_open": v3(0.28, 0.90, 0.825),
-            "pos_covered": v3(0.28, 1.48, 0.918),
+            "pos_covered": v3(0.28, 1.48, 0.885),
             "pitch_open": 0.0,
             "pitch_covered": math.radians(8.5),
         })
@@ -1869,9 +1920,7 @@ class Scene:
 
     def _build_speech(self):
         """构建机器人后上方的圆角气泡字幕面板，默认加载第 1 句台词贴图（“不早了”）。"""
-        self.speech_tex_keys = {
-            1: "speech1", 2: "speech2", 3: "speech3", 4: "speech4",
-        }
+        self.speech_tex_keys = {i: f"speech{i}" for i in SPEECH_LINES}
         self.speech_current = 1
         self.speech_visible = True
         # ==================== 【核心优化：气泡字幕高置防遮挡坐标】 ====================
@@ -1921,11 +1970,7 @@ class Scene:
             p.resetBasePositionAndOrientation(
                 self.speech_body, [0, 0, -100], [0, 0, 0, 1])
             return
-        try:
-            cam = p.getDebugVisualizerCamera()
-            eye = camera_eye_from_view(cam[2])
-        except Exception:
-            eye = np.array([-0.87, -0.42, 2.36])
+        eye = self._eye_now()
         bob = math.sin(self.speech_time * 1.6) * 0.008
         pos = self.speech_pos + v3(0, 0, bob)
         # 计算放大 1.5 倍后的真实世界坐标以精确对准 30° 俯拍摄像机视线
@@ -1968,6 +2013,123 @@ class Scene:
     T_QUILT_PULL_END = 37.25      # 女主角平躺落于枕芯，同时双手将被子拉起至肩颈处完全盖住上半身
     T_LIE_DOWN_END = 37.85        # 女主角松开被角并将双手安放于被窝内，彻底安详入睡
     T_LULLABY = 38.0              # 助眠曲正式响起，同时卧室灯光渐暗、右侧窗帘同步拉拢
+    T_NIGHT = 41.0
+    NIGHT_HANDOFF = v3(0.02, 1.53, 1.08)
+
+    def request_phone(self):
+        """将人工急用请求置为一次性事件，直接进入午夜演示。"""
+        if self._emergency_active:
+            return
+        self.emergency_at = max(self.story_t, self.T_NIGHT)
+        self._start_delay = 0
+        self.story_paused = False
+        self.set_story_time(self.emergency_at)
+
+    @staticmethod
+    def _phase(t, start, end):
+        return float(quintic_ease((t - start) / (end - start)))
+
+    def _sleep_pose(self, t):
+        """按床垫上的身体纵轴翻身，手臂自然收于身侧或枕旁。"""
+        w = self.woman
+        roll = math.radians(SLEEP_POSES[self.sleep_pose][1]) * self._phase(t, 37.85, 40.6)
+        w.set_recline(1.0, t, "sleep", roll)
+        w.set_expression("sleep")
+        for side, sign in (("left", -1), ("right", 1)):
+            shoulder = w.pelvis + w.up * 0.36 + w.across * sign * 0.13
+            wrist = shoulder - w.up * 0.15 + w.forward * 0.10
+            if self.sleep_pose == "prone":
+                wrist = lerp(wrist, shoulder + v3(sign * 0.09, 0.16, 0.04), abs(math.sin(roll / 2)))
+            setattr(w, side + "_wrist", wrist)
+            setattr(w, side + "_hand_dir", norm(w.up + w.forward * 0.4))
+            setattr(w, side + "_palm_normal", w.forward)
+            setattr(w, side + "_curl", 0.32)
+            setattr(w, side + "_thumb_curl", 0.32)
+        w.update_arms()
+
+    def _apply_emergency(self, t):
+        """午夜请求后的翻身、亮灯、出托、交接和持机动作。"""
+        e = t - self.emergency_at
+        w, robot = self.woman, self.robot
+        if not self._emergency_active:
+            stop_lullaby()
+            clear_speech_queue()
+            self.change_tex(w.screen, self.load_tex("incoming_call"))
+            self._emergency_active = True
+        self.set_clock("02:17:00")
+        self.speech_time = t
+        self._set_speech_index(7 if e < 2.7 else 5 if e < 5.8 else 6 if 6.8 <= e < 10.3 else None)
+        # 只开启局部暖光，窗帘保持合拢。
+        dim = 1.0 - 0.48 * self._phase(e, 0, 1.2)
+        if self.current_dim_factor != dim:
+            self._apply_lighting(dim)
+        if self.current_curtain_close != 1.0:
+            self._update_curtains(1.0)
+        self.set_pose(self.phone_screen_glow, (0, 0, -100), (0, 0, 0, 1))
+
+        self._sleep_pose(self.T_NIGHT)
+        wake_duration = {"supine": 1.45, "side": 1.85, "prone": 2.65}[self.sleep_pose]
+        wake = self._phase(e, 0.2, wake_duration)
+        roll = lerp(math.radians(SLEEP_POSES[self.sleep_pose][1]), math.radians(-22), wake)
+        w.set_recline(lerp(1.0, 0.48, wake), t, "awake", roll)
+        w.set_expression("indifferent" if e >= 0.55 else "sleep")
+        self._update_duvet(1.0 - 0.68 * wake)
+
+        open_amount = self._phase(e, 0.8, 2.0) * (1 - self._phase(e, 6.8, 8.3))
+        robot.set_open(open_amount)
+        tray = robot.base + v3(0, -0.06 - 0.13 * open_amount, 0.105)
+        raised_tray = tray + v3(0, 0, 0.19)
+        receive = self.NIGHT_HANDOFF
+        above_handoff = receive + v3(-0.10, 0.05, 0.18)
+        arm = robot.home_tcp
+        jaw = 0.032
+        down = v3(0, 0, -1)
+        grab_offset = v3(0, 0, 0.014)
+        grasp = tray + grab_offset
+        approach = norm(lerp(robot.home_approach, down, self._phase(e, 1.4, 2.4)))
+        phone = tray
+        tray_q = frame_quat(v3(0, 0, 1), v3(1, 0, 0))
+        hand_q = frame_quat(norm(v3(0.3, 0.5, 0.8)), v3(0, 1, 0))
+        phone_q = tray_q
+        if e < 3.0:
+            arm = lerp(robot.home_tcp, raised_tray, self._phase(e, 1.4, 2.25))
+            arm = lerp(arm, grasp, self._phase(e, 2.25, 2.8))
+            jaw = lerp(0.032, 0.064, self._phase(e, 1.4, 2.25))
+            jaw = lerp(jaw, 0.008, self._phase(e, 2.8, 3.0))
+        elif e < 5.8:
+            rise = lerp(grasp, raised_tray, self._phase(e, 3, 3.8))
+            transfer = lerp(rise, above_handoff, self._phase(e, 3.8, 5.0))
+            arm = lerp(transfer, receive + grab_offset, self._phase(e, 5.0, 5.8))
+            phone = arm - grab_offset
+            phone_q = interp_quat(tray_q, hand_q, self._phase(e, 3.8, 5.8))
+            jaw = 0.008
+        else:
+            arm = lerp(receive + grab_offset, above_handoff, self._phase(e, 6.25, 6.9))
+            arm = lerp(arm, robot.home_tcp, self._phase(e, 6.9, 8.4))
+            approach = norm(lerp(down, robot.home_approach, self._phase(e, 6.5, 8.4)))
+            jaw = lerp(0.008, 0.062, self._phase(e, 6.0, 6.25))
+            phone = receive
+            phone_q = hand_q
+
+        # 以手腕和掌心偏移确定交接点。手指合拢后，手机始终随手移动。
+        hold = self._phase(e, 6.18, 7.75)
+        ear = w.head_pos - w.across * 0.087 + w.forward * 0.035
+        hand_target = lerp(receive, ear, hold)
+        direction = norm(lerp(v3(-0.85, 0.45, 0.1), w.up, hold))
+        reach = self._phase(e, wake_duration - 0.2, 5.85)
+        w.left_wrist = lerp(w.left_wrist, hand_target - direction * 0.048, reach)
+        w.left_hand_dir = norm(lerp(w.left_hand_dir, direction, reach))
+        w.left_palm_normal = norm(lerp(w.left_palm_normal, w.forward, reach))
+        w.left_curl = lerp(0.18, 0.78, self._phase(e, 5.85, 6.18))
+        w.left_thumb_curl = w.left_curl
+        w.update_arms()
+        if e >= 6.18:
+            phone = hand_target
+            phone_q = interp_quat(hand_q, frame_quat(w.across, w.up), hold)
+        w.update_phone(phone, phone_q)
+        robot.set_pose(arm, approach, jaw)
+        self._update_gripper_claws(arm, approach, jaw, grasp_curl=1 - float(jaw) / 0.068)
+        self.update_camera_billboards()
 
     def _eye_now(self):
         """获取当前帧摄像机在世界坐标系下的实时视点位置。"""
@@ -1986,6 +2148,9 @@ class Scene:
         stop_lullaby()
         clear_speech_queue()
         self.story_t = 0.0
+        self.sleep_pose = getattr(self, "sleep_pose", "supine")
+        self.emergency_at = getattr(self, "preset_emergency", None)
+        self._emergency_active = False
         self.story_paused = False
         self._start_delay = 1.0       # 开场预留 1.0 秒缓冲，确保窗口稳定呈现后再推进计时
         self.lullaby_on = False
@@ -2003,6 +2168,7 @@ class Scene:
         self._update_duvet(0.0)       # 恢复被子初始状态（叠放在腿部，未拉起盖住上半身）
         w = self.woman
         if w is not None:
+            self.change_tex(w.screen, self.load_tex("phone"))
             w.set_expression("indifferent")
             w.idle(0.0)
         if self.robot is not None:
@@ -2038,6 +2204,12 @@ class Scene:
 
     def _apply_story(self, t):
         """核心时间线状态机：根据当前剧情时间 t 同步驱动时钟、字幕、女主角、被子、机械臂、抓指、手机、灯光、窗帘与音乐。"""
+        if self.emergency_at is not None and t >= self.emergency_at:
+            self._apply_emergency(t)
+            return
+        if self._emergency_active:
+            self.change_tex(self.woman.screen, self.load_tex("phone"))
+        self._emergency_active = False
         w = self.woman
         robot = self.robot
         self.speech_time = t
@@ -2069,7 +2241,7 @@ class Scene:
         elif t < self.T_SPEECH3_END:
             # 阶段 C (26.8s ~ 30.0s)：显示并播报第 3 句字幕“手机将于次日早上6点整归还”
             self._set_speech_index(3)
-            self._log_once("speech3", "机器人：手机将于次日早上6点整归还")
+            self._log_once("speech3", "机器人：手机已入托，急用可取回")
         elif t < self.T_SPEECH4:
             # 间隔 3 (30.0s ~ 32.0s)：第 3 句与第 4 句之间严格 2.0 秒说话间隔（SPEECH_INTERVAL = 2.0s）
             self._set_speech_index(None)
@@ -2391,6 +2563,8 @@ class Scene:
 
             # 更新女主角自然周期性眨眼动画
             w.update_blink(t)
+            if t >= self.T_LIE_DOWN_END:
+                self._sleep_pose(t)
 
         # -------------------------------------------------------------------
         # 6. 【核心优化：播放助眠曲后（t >= 38.0s），灯光暗下来的同时将窗帘拉起来】
@@ -2459,7 +2633,7 @@ class Scene:
         self.reset_story()
         last = time.perf_counter()
         if not self.quiet:
-            print("窗口操作：鼠标拖动旋转 / 滚轮缩放；SPACE 暂停，R 重播，Q 或 ESC 退出")
+            print("空格 暂停 / 继续；1 仰卧、2 侧卧、3 俯卧；E 午夜急用取机；R 重播；Q / Esc 退出")
         try:
             while p.isConnected():
                 now = time.perf_counter()
@@ -2472,12 +2646,21 @@ class Scene:
                     self.story_paused = not self.story_paused
                     if self.story_paused:
                         stop_lullaby()
-                    elif (self.audio_enabled and self._lullaby_started
+                    elif (not self._emergency_active and self.audio_enabled and self._lullaby_started
                         and os.path.exists(self.lullaby_path)):
                         play_lullaby(self.lullaby_path)
                 # R 键（ASCII 114）：从头重播整场剧目
                 if 114 in keys and (keys[114] & p.KEY_WAS_TRIGGERED):
                     self.reset_story()
+                if not self._emergency_active:
+                    for key, pose in POSE_KEYS.items():
+                        if keys.get(ord(key), 0) & p.KEY_WAS_TRIGGERED:
+                            self.sleep_pose = pose
+                            self._log_once(f"pose_{pose}", f"夜间姿势：{SLEEP_POSES[pose][0]}")
+                            if self.story_paused:
+                                self.set_story_time(self.story_t)
+                if keys.get(ord("e"), 0) & p.KEY_WAS_TRIGGERED:
+                    self.request_phone()
                 # Q 键（ASCII 113）或 ESC 键（ASCII 27）：安全退出程序
                 if ((113 in keys and (keys[113] & p.KEY_WAS_TRIGGERED)) or
                         (27 in keys and (keys[27] & p.KEY_WAS_TRIGGERED))):
@@ -2524,8 +2707,7 @@ class Scene:
             rgba = np.reshape(img[2], (rh, rw, 4))[:, :, :3]
             if ssaa > 1:
                 rgba = rgba.reshape(height, ssaa, width, ssaa, 3).mean(axis=(1, 3))
-            sleep_dim = float(quintic_ease(min(1.0, max(0.0, (t - self.T_LULLABY) / 3.0))))
-            final_img = apply_cinematic_postprocess(rgba, sleep_dim=sleep_dim)
+            final_img = apply_cinematic_postprocess(rgba, sleep_dim=self.current_dim_factor)
             fname = os.path.join(outdir, "story_%05.1fs.png" % t)
             write_png(fname, final_img)
             files.append(fname)
@@ -2545,6 +2727,8 @@ def main():
     parser.add_argument("--height", type=int, default=720, help="窗口或截图高度")
     parser.add_argument("--ssaa", type=int, default=1, choices=(1, 2, 3), help="截图超采样倍数")
     parser.add_argument("--mute", action="store_true", help="关闭语音和助眠曲")
+    parser.add_argument("--pose", choices=tuple(SLEEP_POSES), default="supine", help="入睡姿势")
+    parser.add_argument("--emergency", action="store_true", help="在剧情第 43 秒自动演示午夜取机")
     args = parser.parse_args()
     if p is None:
         parser.exit(1, "缺少 PyBullet。请运行：python -m pip install pybullet numpy pillow\n")
@@ -2556,11 +2740,15 @@ def main():
         parser.error("截图尺寸和超采样倍数的组合过大。")
     scene = Scene(gui=not args.capture, width=args.width, height=args.height,
                   audio=not (args.capture or args.mute))
+    scene.sleep_pose = args.pose
+    scene.preset_emergency = 43.0 if args.emergency else None
+    scene.reset_story()
     if not args.capture:
         scene.run()
         return
     try:
-        times = args.times or [0.0, 10.2, 21.5, 22.4, 25.5, 27.0, 32.5, 35.0, 36.5, 37.8, 41.0]
+        times = args.times or ([41.0, 43.3, 45.8, 47.4, 49.0, 51.5] if args.emergency else
+                              [0.0, 10.2, 21.5, 22.4, 25.5, 27.0, 32.5, 35.0, 36.5, 37.8, 41.0])
         scene.capture_times(times, outdir=args.output, width=args.width, height=args.height, ssaa=args.ssaa)
     finally:
         if p.isConnected():
